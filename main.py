@@ -310,6 +310,28 @@ class AStarVisualizer(tk.Tk):
         self.current_label = ttk.Label(right, text="Current: -")
         self.current_label.pack(anchor="w", pady=(2, 10))
 
+        # --- tooltip for hover coordinate (follows mouse) ---
+        self.tooltip = tk.Toplevel(self)
+        self.tooltip.withdraw()
+        self.tooltip.overrideredirect(True)  # no window decorations
+        self.tooltip.attributes("-topmost", True)
+
+        self.tooltip_label = tk.Label(
+            self.tooltip,
+            text="",
+            bg="#ffffe0",
+            fg="black",
+            bd=1,
+            relief="solid",
+            padx=6,
+            pady=3
+        )
+        self.tooltip_label.pack()
+
+        self.canvas.bind("<Motion>", self.on_mouse_move)
+        self.canvas.bind("<Leave>", self.on_mouse_leave)
+
+
         # Bottom controls
         bottom = ttk.Frame(self)
         bottom.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
@@ -360,6 +382,55 @@ class AStarVisualizer(tk.Tk):
         self.snapshots = astar_generate_snapshots(grid, start, goal)
         self.step_idx = 0
         self.render()
+    
+    def on_mouse_leave(self, event):
+        # Hide tooltip when mouse leaves the canvas
+        if hasattr(self, "tooltip"):
+            self.tooltip.withdraw()
+
+    def on_mouse_move(self, event):
+        if not self.grid_data:
+            self.tooltip.withdraw()
+            return
+
+        # Convert pixel -> grid coords
+        x = event.x - self.pad
+        y = event.y - self.pad
+
+        if x < 0 or y < 0:
+            self.tooltip.withdraw()
+            return
+
+        col = x // self.cell_size
+        row = y // self.cell_size
+
+        R, C = len(self.grid_data), len(self.grid_data[0])
+
+        if not (0 <= row < R and 0 <= col < C):
+            self.tooltip.withdraw()
+            return
+
+        # Update tooltip text
+        snap = self.snapshots[self.step_idx] if self.snapshots else None
+        g_score = snap["g_score"] if snap else {}
+        node = (row, col)
+
+        if node in g_score:
+            g = g_score[node]
+            h = manhattan(node, self.goal)
+            f = g + h
+            self.tooltip_label.config(text=f"({row},{col})  f={f} ({g}+{h})")
+        else:
+            self.tooltip_label.config(text=f"({row}, {col})")
+
+
+        # Place tooltip near the mouse (in screen coordinates)
+        offset_x, offset_y = 14, 14
+        screen_x = self.canvas.winfo_rootx() + event.x + offset_x
+        screen_y = self.canvas.winfo_rooty() + event.y + offset_y
+        self.tooltip.geometry(f"+{screen_x}+{screen_y}")
+        self.tooltip.deiconify()
+
 
     def reset_steps(self):
         if not self.snapshots:
