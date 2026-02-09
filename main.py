@@ -463,6 +463,7 @@ class AStarVisualizer(tk.Tk):
             return
 
         snap = self.snapshots[self.step_idx]
+        g_score = snap["g_score"] if snap else {}
         grid = self.grid_data
         R, C = len(grid), len(grid[0])
         cs = self.cell_size
@@ -516,6 +517,24 @@ class AStarVisualizer(tk.Tk):
                     self.canvas.create_text((x0+x1)//2, (y0+y1)//2, text="S")
                 elif node == self.goal:
                     self.canvas.create_text((x0+x1)//2, (y0+y1)//2, text="G")
+                
+                # --- draw f value for discovered cells (in g_score) ---
+                node = (r, c)
+                if grid[r][c] != "wall" and node in g_score:
+                    # Optional: avoid clutter if cells are too small
+                    if cs >= 22:
+                        g = g_score[node]
+                        h = manhattan(node, self.goal)
+                        f = g + h
+
+                        # Don't overwrite S/G labels (optional)
+                        if node != self.start and node != self.goal:
+                            self.canvas.create_text(
+                                (x0 + x1) // 2,
+                                (y0 + y1) // 2,
+                                text=str(f),
+                                font=("TkDefaultFont", max(8, cs // 3))
+                            )
 
         # Populate open list box (priority queue display)
         for node, f, g, h in open_items:
